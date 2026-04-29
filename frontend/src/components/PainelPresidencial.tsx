@@ -155,28 +155,64 @@ export function PainelPresidencial() {
       }));
   }, [aprovLula]);
 
-  // ============== Série de intenção de voto: top 5 candidatos × mês ==============
-  const { serieIntencaoChart, candidatosTop } = useMemo(() => {
-    const RUIDO = ["branco", "nulo", "indeciso", "ns/nr", "não vai", "outros", "nenhum"];
-    const limpos = serieIntencao.filter(
-      (i) => !RUIDO.some((r) => i.candidato_nome.toLowerCase().includes(r))
-    );
+  // ============== Série de intenção de voto: top candidatos × mês ==============
+  const { serieIntencaoChart, candidatosTop, mesesCobertos } = useMemo(() => {
+    // Normaliza nome: remove prefixos "- ", múltiplos espaços, trim
+    const normalizar = (s: string) =>
+      s.replace(/^[\s\-–—•]+/, "").replace(/\s+/g, " ").trim();
 
-    // Score total por candidato pra escolher top 5
-    const scoreTotal = new Map<string, number>();
+    // Detecta ruído (não-candidato): indecisos, branco/nulo, outros, etc.
+    const ehRuido = (nome: string) => {
+      const n = nome.toLowerCase();
+      return (
+        n.includes("indeciso") ||
+        n.includes("branco") ||
+        n.includes("nulo") ||
+        n.includes("outros") ||
+        n.includes("nenhum") ||
+        n.includes("não vai") ||
+        n.includes("nao vai") ||
+        n.includes("ns/nr") ||
+        n.includes("ns / nr") ||
+        n.includes("não sabe") ||
+        n.includes("nao sabe") ||
+        n.includes("não respond") ||
+        n.includes("nao respond")
+      );
+    };
+
+    const limpos = serieIntencao
+      .map((i) => ({ ...i, candidato_nome: normalizar(i.candidato_nome) }))
+      .filter((i) => i.candidato_nome.length > 1 && !ehRuido(i.candidato_nome));
+
+    // Score: prioriza candidatos que aparecem em mais meses E com pct alto
+    const stats = new Map<string, { meses: Set<string>; pctMax: number; pctSum: number; n: number }>();
     for (const i of limpos) {
-      scoreTotal.set(i.candidato_nome, (scoreTotal.get(i.candidato_nome) || 0) + i.percentual);
+      if (!i.data) continue;
+      const mes = i.data.slice(0, 7);
+      const s = stats.get(i.candidato_nome) || { meses: new Set<string>(), pctMax: 0, pctSum: 0, n: 0 };
+      s.meses.add(mes);
+      s.pctMax = Math.max(s.pctMax, i.percentual);
+      s.pctSum += i.percentual;
+      s.n += 1;
+      stats.set(i.candidato_nome, s);
     }
-    const top = Array.from(scoreTotal.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+
+    // Top 8: rankeia por (#meses, pctMax) — quem aparece mais vezes vence
+    const top = Array.from(stats.entries())
+      .filter(([, s]) => s.pctMax >= 1) // ignora candidatos sempre <1%
+      .sort((a, b) => {
+        if (b[1].meses.size !== a[1].meses.size) return b[1].meses.size - a[1].meses.size;
+        return b[1].pctMax - a[1].pctMax;
+      })
+      .slice(0, 8)
       .map(([nome]) => nome);
 
-    // Agrupa por mês: { label, [candidato]: media }
+    // Agrupa todos os pontos por mês (mesmo meses sem nenhum top)
     const mapa = new Map<string, any>();
     for (const i of limpos) {
-      if (!top.includes(i.candidato_nome)) continue;
       if (!i.data) continue;
+      if (!top.includes(i.candidato_nome)) continue;
       const chave = i.data.slice(0, 7);
       if (!mapa.has(chave)) {
         mapa.set(chave, {
@@ -195,7 +231,7 @@ export function PainelPresidencial() {
     const serie = Array.from(mapa.values())
       .sort((a, b) => a.chave.localeCompare(b.chave))
       .map((p) => {
-        const ponto: any = { label: p.label };
+        const ponto: any = { label: p.label, _mes: p.chave };
         for (const c of top) {
           const a = p._acc[c];
           ponto[c] = a ? Math.round((a.sum / a.n) * 10) / 10 : null;
@@ -203,7 +239,7 @@ export function PainelPresidencial() {
         return ponto;
       });
 
-    return { serieIntencaoChart: serie, candidatosTop: top };
+    return { serieIntencaoChart: serie, candidatosTop: top, mesesCobertos: serie.length };
   }, [serieIntencao]);
 
   // Última e variação
@@ -301,15 +337,15 @@ export function PainelPresidencial() {
                 Intenção de voto — evolução por candidato
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Média por mês entre todos os cenários (top {candidatosTop.length})
+                Média mensal entre todos os cenários · {candidatosTop.length} candidatos × {mesesCobertos} {mesesCobertos === 1 ? "mês" : "meses"}
               </p>
             </div>
             <span className="text-xs text-gray-500 flex-shrink-0">
-              {serieIntencao.length} registros
+              {serieIntencao.length} pontos
             </span>
           </div>
 
-          <div className="h-56 md:h-72">
+          <div className="h-64 md:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={serieIntencaoChart} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -325,13 +361,20 @@ export function PainelPresidencial() {
                     name={nome}
                     stroke={CORES[idx % CORES.length]}
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
                     connectNulls
                   />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
+
+          {mesesCobertos < 4 && (
+            <p className="text-[11px] text-gray-500 mt-2 italic">
+              Cobertura limitada — algumas pesquisas mensais ainda não foram extraídas; meses sem dados são ignorados na linha (connectNulls).
+            </p>
+          )}
         </div>
       )}
 
