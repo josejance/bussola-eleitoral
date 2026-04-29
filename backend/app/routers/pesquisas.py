@@ -276,6 +276,7 @@ def comparar_pesquisas(
 def historico_intencao_voto(
     eleicao_id: str | None = Query(None),
     estado_id: str | None = Query(None),
+    apenas_nacional: bool = Query(False, description="Se true, só pesquisas com estado_id NULL"),
     cargo: str | None = Query(None, description="governador|senador|presidente"),
     instituto_id: str | None = Query(None),
     desde: date | None = Query(None),
@@ -293,6 +294,8 @@ def historico_intencao_voto(
         q = q.filter(Pesquisa.eleicao_id == eleicao_id)
     if estado_id:
         q = q.filter(Pesquisa.estado_id == estado_id)
+    if apenas_nacional:
+        q = q.filter(Pesquisa.estado_id.is_(None))
     if instituto_id:
         q = q.filter(Pesquisa.instituto_id == instituto_id)
     if desde:
@@ -319,6 +322,7 @@ def historico_intencao_voto(
 @router.get("", response_model=list[PesquisaOut])
 def list_pesquisas(
     estado_id: str | None = Query(None),
+    apenas_nacional: bool = Query(False, description="Se true, só pesquisas com estado_id NULL"),
     instituto_id: str | None = Query(None),
     desde: date | None = Query(None),
     limit: int = Query(50, le=200),
@@ -328,6 +332,8 @@ def list_pesquisas(
     q = db.query(Pesquisa)
     if estado_id:
         q = q.filter(Pesquisa.estado_id == estado_id)
+    if apenas_nacional:
+        q = q.filter(Pesquisa.estado_id.is_(None))
     if instituto_id:
         q = q.filter(Pesquisa.instituto_id == instituto_id)
     if desde:

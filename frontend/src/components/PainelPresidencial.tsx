@@ -13,7 +13,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowRight, BarChart3, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  ExternalLink,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 
 import { api } from "../lib/api";
 
@@ -27,6 +34,36 @@ interface PontoAval {
   otimo_bom: number | null;
 }
 
+interface PontoIntencao {
+  pesquisa_id: string;
+  data: string | null;
+  instituto_nome: string;
+  instituto_id: string;
+  candidato_nome: string;
+  percentual: number;
+  posicao: number | null;
+}
+
+interface PesquisaResumo {
+  id: string;
+  data_fim_campo: string | null;
+  data_inicio_campo: string | null;
+  amostra: number | null;
+  margem_erro: number | null;
+  registro_tse: string | null;
+  contratante: string | null;
+  instituto_id: string;
+  tipo_cenario: string;
+}
+
+interface InstitutoOut {
+  id: string;
+  nome: string;
+  sigla: string | null;
+}
+
+const CORES = ["#DC2626", "#2563EB", "#16A34A", "#EA580C", "#7C3AED", "#0891B2", "#DB2777", "#65A30D"];
+
 export function PainelPresidencial() {
   // Aprovação Lula nacional
   const { data: aprovLula = [] } = useQuery({
@@ -38,6 +75,39 @@ export function PainelPresidencial() {
         })
       ).data,
   });
+
+  // Histórico de intenção de voto presidencial (todas as pesquisas nacionais)
+  const { data: serieIntencao = [] } = useQuery({
+    queryKey: ["historico-intencao-nacional"],
+    queryFn: async () =>
+      (
+        await api.get<PontoIntencao[]>("/pesquisas/historico/intencao-voto", {
+          params: { apenas_nacional: true },
+        })
+      ).data,
+  });
+
+  // Pesquisas nacionais mais recentes (cards)
+  const { data: pesquisasRecentes = [] } = useQuery({
+    queryKey: ["pesquisas-nacionais-recentes"],
+    queryFn: async () =>
+      (
+        await api.get<PesquisaResumo[]>("/pesquisas", {
+          params: { apenas_nacional: true, limit: 6 },
+        })
+      ).data,
+  });
+
+  // Lookup de institutos para enriquecer cards
+  const { data: institutos = [] } = useQuery({
+    queryKey: ["institutos"],
+    queryFn: async () => (await api.get<InstitutoOut[]>("/pesquisas/institutos")).data,
+  });
+  const institutoNome = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const i of institutos) m.set(i.id, i.nome);
+    return m;
+  }, [institutos]);
 
   // Agregador nacional (presidencial)
   const { data: agregado } = useQuery({
@@ -51,11 +121,10 @@ export function PainelPresidencial() {
     queryFn: async () => (await api.get("/pesquisas/agregador/monte-carlo?n_simulacoes=5000")).data,
   });
 
-  // Série da aprovação consolidada por mês (Lula apenas)
+  // ============== Série da aprovação Lula consolidada por mês ==============
   const serieAprov = useMemo(() => {
     const mapa = new Map<string, any>();
     for (const a of aprovLula) {
-      // Filtra apenas Lula
       if (a.pessoa_avaliada && !a.pessoa_avaliada.nome.toLowerCase().includes("lula")) continue;
       const dt = a.data || a.data_pesquisa;
       if (!dt) continue;
@@ -86,6 +155,57 @@ export function PainelPresidencial() {
       }));
   }, [aprovLula]);
 
+  // ============== Série de intenção de voto: top 5 candidatos × mês ==============
+  const { serieIntencaoChart, candidatosTop } = useMemo(() => {
+    const RUIDO = ["branco", "nulo", "indeciso", "ns/nr", "não vai", "outros", "nenhum"];
+    const limpos = serieIntencao.filter(
+      (i) => !RUIDO.some((r) => i.candidato_nome.toLowerCase().includes(r))
+    );
+
+    // Score total por candidato pra escolher top 5
+    const scoreTotal = new Map<string, number>();
+    for (const i of limpos) {
+      scoreTotal.set(i.candidato_nome, (scoreTotal.get(i.candidato_nome) || 0) + i.percentual);
+    }
+    const top = Array.from(scoreTotal.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([nome]) => nome);
+
+    // Agrupa por mês: { label, [candidato]: media }
+    const mapa = new Map<string, any>();
+    for (const i of limpos) {
+      if (!top.includes(i.candidato_nome)) continue;
+      if (!i.data) continue;
+      const chave = i.data.slice(0, 7);
+      if (!mapa.has(chave)) {
+        mapa.set(chave, {
+          chave,
+          label: format(parseISO(i.data), "MMM/yy", { locale: ptBR }),
+          _acc: {} as Record<string, { sum: number; n: number }>,
+        });
+      }
+      const p = mapa.get(chave);
+      const acc = p._acc[i.candidato_nome] || { sum: 0, n: 0 };
+      acc.sum += i.percentual;
+      acc.n += 1;
+      p._acc[i.candidato_nome] = acc;
+    }
+
+    const serie = Array.from(mapa.values())
+      .sort((a, b) => a.chave.localeCompare(b.chave))
+      .map((p) => {
+        const ponto: any = { label: p.label };
+        for (const c of top) {
+          const a = p._acc[c];
+          ponto[c] = a ? Math.round((a.sum / a.n) * 10) / 10 : null;
+        }
+        return ponto;
+      });
+
+    return { serieIntencaoChart: serie, candidatosTop: top };
+  }, [serieIntencao]);
+
   // Última e variação
   const ultimaAprov = serieAprov[serieAprov.length - 1];
   const penultimaAprov = serieAprov[serieAprov.length - 2];
@@ -95,7 +215,7 @@ export function PainelPresidencial() {
 
   // Top 5 candidatos do agregado (filtrando ruído)
   const topCandidatos = (agregado?.candidatos || [])
-    .filter((c: any) => !["branco", "nulo", "indeciso", "ns/nr", "não vai", "outros"].some(x => c.nome.toLowerCase().includes(x)))
+    .filter((c: any) => !["branco", "nulo", "indeciso", "ns/nr", "não vai", "outros"].some((x) => c.nome.toLowerCase().includes(x)))
     .slice(0, 6);
 
   // Cenários de 2T mais prováveis
@@ -109,8 +229,8 @@ export function PainelPresidencial() {
     <div className="space-y-4">
       {/* Linha 1: Aprovação Lula (peça principal) */}
       <div className="card">
-        <div className="flex items-start justify-between mb-3">
-          <div>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700 flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-info" />
               Aprovação do Governo Federal — Presidente Lula
@@ -120,9 +240,9 @@ export function PainelPresidencial() {
             </p>
           </div>
           {ultimaAprov?.aprova != null && (
-            <div className="text-right">
-              <div className="flex items-baseline gap-2 justify-end">
-                <span className="text-4xl font-bold font-mono text-sucesso">{ultimaAprov.aprova}%</span>
+            <div className="text-left md:text-right flex-shrink-0">
+              <div className="flex items-baseline gap-2 md:justify-end">
+                <span className="text-3xl md:text-4xl font-bold font-mono text-sucesso">{ultimaAprov.aprova}%</span>
                 {deltaAprov != null && (
                   <span className={`text-sm font-bold flex items-center ${deltaAprov >= 0 ? "text-sucesso" : "text-alerta"}`}>
                     {deltaAprov >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -141,12 +261,12 @@ export function PainelPresidencial() {
         </div>
 
         {serieAprov.length > 0 ? (
-          <div className="h-64">
+          <div className="h-56 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={serieAprov} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
+              <LineChart data={serieAprov} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
                 <Tooltip formatter={(v: any) => [`${v}%`, ""]} contentStyle={{ fontSize: 11 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} iconType="line" />
                 <Line type="monotone" dataKey="aprova" stroke="#16A34A" strokeWidth={3} name="Aprova" connectNulls dot={{ r: 4 }} />
@@ -171,7 +291,51 @@ export function PainelPresidencial() {
         )}
       </div>
 
-      {/* Linha 2: 2 cards lado a lado — intenção 1T e cenários 2T */}
+      {/* Linha 2: Histórico de intenção de voto presidencial */}
+      {serieIntencaoChart.length > 0 && candidatosTop.length > 0 && (
+        <div className="card">
+          <div className="flex items-start justify-between mb-3 gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700 flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-info" />
+                Intenção de voto — evolução por candidato
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Média por mês entre todos os cenários (top {candidatosTop.length})
+              </p>
+            </div>
+            <span className="text-xs text-gray-500 flex-shrink-0">
+              {serieIntencao.length} registros
+            </span>
+          </div>
+
+          <div className="h-56 md:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={serieIntencaoChart} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, "auto"]} tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                <Tooltip formatter={(v: any) => [`${v}%`, ""]} contentStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 10 }} iconType="line" />
+                {candidatosTop.map((nome, idx) => (
+                  <Line
+                    key={nome}
+                    type="monotone"
+                    dataKey={nome}
+                    name={nome}
+                    stroke={CORES[idx % CORES.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Linha 3: 2 cards lado a lado — intenção 1T e cenários 2T */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Intenção de voto presidencial — agregado 1T */}
         <div className="card">
@@ -199,7 +363,7 @@ export function PainelPresidencial() {
                       className="absolute h-2 rounded transition-all"
                       style={{
                         width: `${Math.min(c.estimativa, 100)}%`,
-                        backgroundColor: ["#DC2626", "#2563EB", "#16A34A", "#EA580C", "#7C3AED", "#0891B2"][i % 6],
+                        backgroundColor: CORES[i % CORES.length],
                       }}
                     />
                   </div>
@@ -254,6 +418,72 @@ export function PainelPresidencial() {
           </Link>
         </div>
       </div>
+
+      {/* Linha 4: cards das pesquisas nacionais mais recentes */}
+      {pesquisasRecentes.length > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-info" />
+              Pesquisas nacionais recentes
+            </h2>
+            <Link to="/pesquisas" className="text-xs text-info hover:underline">
+              ver todas →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pesquisasRecentes.map((p) => {
+              const inst = institutoNome.get(p.instituto_id) || "Instituto";
+              return (
+                <Link
+                  key={p.id}
+                  to={`/pesquisas/${p.id}`}
+                  className="block border border-gray-200 rounded-md p-3 hover:border-info hover:shadow-sm transition group"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm text-gray-900 truncate">{inst}</div>
+                      {p.contratante && (
+                        <div className="text-[11px] text-gray-500 truncate">{p.contratante}</div>
+                      )}
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-gray-400 group-hover:text-info flex-shrink-0" />
+                  </div>
+                  <div className="text-xs text-gray-700 space-y-0.5">
+                    {p.data_fim_campo && (
+                      <div>
+                        <span className="text-gray-500">Campo: </span>
+                        {p.data_inicio_campo
+                          ? `${format(parseISO(p.data_inicio_campo), "dd/MM", { locale: ptBR })}–`
+                          : ""}
+                        {format(parseISO(p.data_fim_campo), "dd/MM/yyyy", { locale: ptBR })}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {p.amostra && (
+                        <span>
+                          <span className="text-gray-500">N=</span>
+                          {p.amostra.toLocaleString("pt-BR")}
+                        </span>
+                      )}
+                      {p.margem_erro != null && (
+                        <span>
+                          <span className="text-gray-500">±</span>
+                          {p.margem_erro}pp
+                        </span>
+                      )}
+                    </div>
+                    {p.registro_tse && (
+                      <div className="font-mono text-[10px] text-info pt-1">{p.registro_tse}</div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
