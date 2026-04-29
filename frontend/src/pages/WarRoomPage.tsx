@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { format, formatDistanceToNow, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+import { formatRelativeUtc } from "../lib/datetime";
 import {
   Activity,
   AlertTriangle,
@@ -126,7 +128,7 @@ function WidgetMateriasRecentes({ autoRefresh }: { autoRefresh: boolean }) {
             <a key={m.id} href={m.url} target="_blank" rel="noreferrer" className="block hover:bg-slate-700 -mx-1 px-1 py-0.5 rounded">
               <div className="text-xs font-medium text-slate-100 line-clamp-2">{m.titulo}</div>
               <div className="text-[10px] text-slate-500">
-                {m.data_publicacao && formatDistanceToNow(new Date(m.data_publicacao), { locale: ptBR, addSuffix: true })}
+                {m.data_publicacao && formatRelativeUtc(m.data_publicacao)}
               </div>
             </a>
           ))}
@@ -281,7 +283,7 @@ function WidgetAlertasPrioritarios({ autoRefresh }: { autoRefresh: boolean }) {
             <div key={n.id} className="text-xs border-l-2 border-red-500 pl-2">
               <div className="text-slate-200 font-medium line-clamp-1">{n.titulo}</div>
               <div className="text-[10px] text-slate-500">
-                {formatDistanceToNow(new Date(n.created_at), { locale: ptBR, addSuffix: true })}
+                {formatRelativeUtc(n.created_at)}
               </div>
             </div>
           ))}

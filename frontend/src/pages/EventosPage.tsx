@@ -1,10 +1,9 @@
 import { FormEvent, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Plus } from "lucide-react";
 
 import { api } from "../lib/api";
+import { formatLocalDateTime } from "../lib/datetime";
 import { Estado, Evento } from "../lib/types";
 import { useAuth } from "../store/auth";
 
@@ -77,7 +76,7 @@ export function EventosPage() {
                     {e.tipo.replace(/_/g, " ")}
                   </span>
                   <span className="text-xs text-gray-400 font-mono">
-                    {format(new Date(e.data_evento), "dd MMM yyyy HH:mm", { locale: ptBR })}
+                    {formatLocalDateTime(e.data_evento, "dd MMM yyyy HH:mm")}
                   </span>
                   {e.automatico && (
                     <span className="badge bg-purple-50 text-purple-700 text-xs">automático</span>

@@ -16,7 +16,7 @@ import hashlib
 import json
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 import feedparser
@@ -48,15 +48,19 @@ def _hash_url(url: str) -> str:
 
 
 def _parse_date(entry) -> datetime:
-    """Extrai data de publicação de uma entrada RSS, com fallback para now."""
+    """Extrai data de publicação de uma entrada RSS (sempre UTC aware).
+
+    feedparser normaliza published_parsed para UTC; só faltava marcar
+    o tzinfo para o JSON sair como `…+00:00` em vez de naive.
+    """
     for key in ("published_parsed", "updated_parsed", "created_parsed"):
         val = entry.get(key)
         if val:
             try:
-                return datetime(*val[:6])
+                return datetime(*val[:6], tzinfo=timezone.utc)
             except (TypeError, ValueError):
                 continue
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def _clean_html(text: str | None) -> str:
@@ -162,7 +166,7 @@ def poll_fonte(db: Session, fonte: FonteRSS, estados_por_sigla: dict[str, str]) 
                 conteudo_completo=None,
                 autor=autor[:150] if autor else None,
                 data_publicacao=data_pub,
-                data_captura=datetime.utcnow(),
+                data_captura=datetime.now(timezone.utc),
                 url=url[:1000],
                 hash_url=url_hash,
                 imagem_url=imagem[:1000] if imagem else None,
@@ -210,7 +214,7 @@ def poll_fonte(db: Session, fonte: FonteRSS, estados_por_sigla: dict[str, str]) 
                     MateriaMetadata(
                         materia_id=materia.id,
                         relevancia_estrategica=filtro.score_relevancia,
-                        processado_em=datetime.utcnow(),
+                        processado_em=datetime.now(timezone.utc),
                         modelo_usado="filtro_entidades",
                         tokens_consumidos=0,
                         custo_centavos=0,
@@ -220,7 +224,7 @@ def poll_fonte(db: Session, fonte: FonteRSS, estados_por_sigla: dict[str, str]) 
                 stats["descartadas"] += 1
 
         # Atualiza fonte
-        agora = datetime.utcnow()
+        agora = datetime.now(timezone.utc)
         fonte.ultimo_polling = agora
         fonte.ultimo_sucesso = agora
         fonte.total_materias_capturadas = (fonte.total_materias_capturadas or 0) + stats["novas"]
@@ -234,7 +238,7 @@ def poll_fonte(db: Session, fonte: FonteRSS, estados_por_sigla: dict[str, str]) 
         stats["erro"] = str(e)[:500]
         # registra polling mesmo com erro
         try:
-            fonte.ultimo_polling = datetime.utcnow()
+            fonte.ultimo_polling = datetime.now(timezone.utc)
             db.commit()
         except Exception:
             db.rollback()
@@ -248,7 +252,7 @@ def _devido_polling(fonte: FonteRSS) -> bool:
     if not fonte.ultimo_polling:
         return True
     janela = timedelta(minutes=fonte.frequencia_polling_minutos or 30)
-    return datetime.utcnow() - fonte.ultimo_polling >= janela
+    return datetime.now(timezone.utc) - fonte.ultimo_polling >= janela
 
 
 def run_polling(

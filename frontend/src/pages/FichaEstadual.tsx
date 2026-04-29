@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, NavLink, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight, Edit3, FileDown, FileText } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import clsx from "clsx";
 
@@ -10,6 +10,7 @@ import { api } from "../lib/api";
 import { Estado, Evento, Materia, Nota, Pesquisa, StatusEstado } from "../lib/types";
 import { useAuth } from "../store/auth";
 import { PainelGovernador } from "../components/PainelGovernador";
+import { formatLocalDateTime } from "../lib/datetime";
 
 const ABAS = [
   { key: "visao-geral", label: "Visão Geral" },
@@ -308,7 +309,7 @@ function AbaVisaoGeral({ estado, status }: { estado: Estado; status?: StatusEsta
           <div className="space-y-1 text-xs text-gray-600">
             <div>Última pesquisa: <em className="text-gray-400">não capturada ainda</em></div>
             <div>Última matéria: <em className="text-gray-400">não capturada ainda</em></div>
-            <div>Última edição: {status?.updated_at ? format(new Date(status.updated_at), "dd/MM HH:mm", { locale: ptBR }) : "—"}</div>
+            <div>Última edição: {status?.updated_at ? formatLocalDateTime(status.updated_at, "dd/MM HH:mm") : "—"}</div>
           </div>
         </div>
       </div>
@@ -516,7 +517,7 @@ function CardPesquisaComIA({ pesquisa }: { pesquisa: Pesquisa }) {
           )}
           <span className="text-xs text-gray-500">
             {pesquisa.data_fim_campo &&
-              format(new Date(pesquisa.data_fim_campo), "dd MMM yyyy", { locale: ptBR })}
+              format(parseISO(pesquisa.data_fim_campo), "dd MMM yyyy", { locale: ptBR })}
           </span>
         </div>
       </div>
@@ -762,7 +763,7 @@ function AbaMidia({ estado }: { estado: Estado }) {
           </a>
           {m.snippet && <p className="text-sm text-gray-600 mt-1">{m.snippet}</p>}
           <div className="text-xs text-gray-400 mt-2">
-            {format(new Date(m.data_publicacao), "dd MMM yyyy, HH:mm", { locale: ptBR })}
+            {formatLocalDateTime(m.data_publicacao, "dd MMM yyyy, HH:mm")}
           </div>
         </article>
       ))}
@@ -789,7 +790,7 @@ function AbaTimeline({ estado }: { estado: Estado }) {
       {eventos.map((e) => (
         <div key={e.id} className="border-l-2 border-info pl-4 py-1">
           <div className="text-xs text-gray-400 font-mono">
-            {format(new Date(e.data_evento), "dd MMM yyyy HH:mm", { locale: ptBR })}
+            {formatLocalDateTime(e.data_evento, "dd MMM yyyy HH:mm")}
           </div>
           <div className="font-display font-semibold text-gray-900">{e.titulo}</div>
           {e.descricao && <p className="text-sm text-gray-600 mt-1">{e.descricao}</p>}
@@ -828,7 +829,7 @@ function AbaNotas({ estado }: { estado: Estado }) {
             <span className="badge bg-gray-100 text-gray-700">{n.sensibilidade}</span>
           </div>
           <div className="text-xs text-gray-500 mb-2">
-            {format(new Date(n.created_at), "dd MMM yyyy", { locale: ptBR })} · {n.tema}
+            {formatLocalDateTime(n.created_at, "dd MMM yyyy")} · {n.tema}
           </div>
           <p className="text-sm text-gray-700 whitespace-pre-line line-clamp-4">{n.conteudo}</p>
         </article>

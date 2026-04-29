@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { ExternalLink, Newspaper, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { api } from "../lib/api";
+import { formatLocalDateTime, formatRelativeUtc } from "../lib/datetime";
 import { Estado, Materia } from "../lib/types";
 import { useAuth } from "../store/auth";
 
@@ -101,7 +100,7 @@ export function MidiaPage() {
 
       {status?.ultimo_polling && (
         <div className="text-xs text-gray-500 mb-3">
-          Último polling: {formatDistanceToNow(new Date(status.ultimo_polling), { locale: ptBR, addSuffix: true })}
+          Último polling: {formatRelativeUtc(status.ultimo_polling)}
           {" "}· Scheduler: a cada 15 min
         </div>
       )}
@@ -165,7 +164,7 @@ export function MidiaPage() {
                     )}
                     <span>·</span>
                     <span>
-                      {format(new Date(m.data_publicacao), "dd MMM HH:mm", { locale: ptBR })}
+                      {formatLocalDateTime(m.data_publicacao, "dd MMM HH:mm")}
                     </span>
                   </div>
                   <a

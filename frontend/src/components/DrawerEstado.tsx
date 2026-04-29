@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink, Info, X } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import { api } from "../lib/api";
 import { Estado, Evento, Materia, Pesquisa, StatusEstado } from "../lib/types";
+import { formatLocalDateTime } from "../lib/datetime";
 
 interface Candidatura {
   id: string;
@@ -218,7 +219,7 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
                 </span>
                 <span className="text-xs text-gray-500">
                   {ultimaPesquisa.data_fim_campo &&
-                    format(new Date(ultimaPesquisa.data_fim_campo), "dd MMM yyyy", { locale: ptBR })}
+                    format(parseISO(ultimaPesquisa.data_fim_campo), "dd MMM yyyy", { locale: ptBR })}
                 </span>
               </div>
               <div className="text-xs text-gray-500 mt-1">
@@ -259,7 +260,7 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
                     <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{m.snippet}</p>
                   )}
                   <div className="text-xs text-gray-400 mt-1">
-                    {format(new Date(m.data_publicacao), "dd MMM, HH:mm", { locale: ptBR })}
+                    {formatLocalDateTime(m.data_publicacao, "dd MMM, HH:mm")}
                   </div>
                 </article>
               ))}
@@ -280,7 +281,7 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
                 <li key={e.id} className="text-sm">
                   <div className="flex items-baseline gap-2">
                     <span className="text-xs text-gray-400 font-mono">
-                      {format(new Date(e.data_evento), "dd/MM", { locale: ptBR })}
+                      {formatLocalDateTime(e.data_evento, "dd/MM")}
                     </span>
                     <span className="font-medium text-gray-900">{e.titulo}</span>
                   </div>

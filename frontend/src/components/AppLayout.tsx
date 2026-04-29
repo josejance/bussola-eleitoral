@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
 import { api } from "../lib/api";
+import { formatRelativeUtc } from "../lib/datetime";
 import {
   LayoutDashboard,
   Map,
@@ -359,7 +357,7 @@ function SinoNotificacoes() {
                         <div className="text-xs text-gray-600 line-clamp-2">{n.mensagem}</div>
                       )}
                       <div className="text-[10px] text-gray-400 mt-0.5">
-                        {formatDistanceToNow(new Date(n.created_at), { locale: ptBR, addSuffix: true })}
+                        {formatRelativeUtc(n.created_at)}
                       </div>
                     </div>
                     {!n.lida && (

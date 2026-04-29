@@ -1,12 +1,11 @@
 import { FormEvent, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Plus } from "lucide-react";
 
 import { api } from "../lib/api";
 import { Estado, Nota } from "../lib/types";
 import { useAuth } from "../store/auth";
+import { formatLocalDateTime } from "../lib/datetime";
 
 const TEMAS = ["governo", "senado", "bancada_federal", "bancada_estadual", "coligacao", "articulacao_geral", "midia", "inteligencia", "outros"];
 const SENSIB = ["publico", "interno", "restrito_direcao"];
@@ -79,7 +78,7 @@ export function NotasPage() {
                 )}
               </div>
               <span className="text-xs text-gray-400">
-                {format(new Date(n.created_at), "dd MMM yyyy", { locale: ptBR })} · v{n.versao}
+                {formatLocalDateTime(n.created_at, "dd MMM yyyy")} · v{n.versao}
               </span>
             </div>
             <h3 className="font-display font-semibold text-gray-900 mb-2">{n.titulo}</h3>
