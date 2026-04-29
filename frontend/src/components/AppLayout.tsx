@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -27,6 +27,8 @@ import {
   Moon,
   Sun,
   Keyboard,
+  Menu,
+  X,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -54,47 +56,90 @@ const navItems = [
 export function AppLayout() {
   const user = useAuth((s) => s.user);
   const signOut = useAuth((s) => s.signOut);
-  const { sidebarCollapsed, toggleSidebar } = useUI();
+  const { sidebarCollapsed, toggleSidebar, mobileMenuOpen, setMobileMenuOpen } = useUI();
   const location = useLocation();
+  const darkMode = useUI((s) => s.darkMode);
+
+  // Fecha o menu mobile ao trocar de rota
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname, setMobileMenuOpen]);
+
+  // Trava scroll do body quando drawer mobile aberto
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+  }, [mobileMenuOpen]);
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.papelMin || (user && item.papelMin.includes(user.papel))
+  );
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Sidebar */}
+      {/* Overlay mobile (escurece o conteúdo quando drawer aberto) */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Sidebar — fixa em desktop, drawer em mobile */}
       <aside
         className={clsx(
           "bg-white border-r border-gray-200 flex flex-col transition-all duration-200",
-          sidebarCollapsed ? "w-16" : "w-60"
+          // Desktop: largura fixa, posição estática
+          "md:static md:translate-x-0",
+          sidebarCollapsed ? "md:w-16" : "md:w-60",
+          // Mobile: fixa, slide in/out
+          "fixed inset-y-0 left-0 z-50 w-72",
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
-        <div className="h-14 flex items-center px-4 border-b border-gray-200">
-          <Compass className="text-pt h-6 w-6 flex-shrink-0" />
-          {!sidebarCollapsed && (
-            <span className="ml-2 font-display font-semibold text-gray-900">
-              Bússola Eleitoral
-            </span>
-          )}
+        <div className="h-14 flex items-center px-4 border-b border-gray-200 justify-between">
+          <div className="flex items-center min-w-0">
+            <Compass className="text-pt h-6 w-6 flex-shrink-0" />
+            {(!sidebarCollapsed || mobileMenuOpen) && (
+              <span className="ml-2 font-display font-semibold text-gray-900 truncate">
+                Bússola Eleitoral
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="md:hidden p-1 text-gray-500 hover:bg-gray-100 rounded"
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3">
-          {navItems.map((item) => {
-            if (item.papelMin && user && !item.papelMin.includes(user.papel)) return null;
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
+            const showLabel = !sidebarCollapsed || mobileMenuOpen;
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
                   clsx(
-                    "flex items-center gap-3 px-4 py-2 text-sm transition",
+                    "flex items-center gap-3 px-4 py-2.5 md:py-2 text-sm transition",
                     isActive
                       ? "bg-blue-50 text-info border-r-2 border-info font-medium"
                       : "text-gray-700 hover:bg-gray-50"
                   )
                 }
-                title={sidebarCollapsed ? item.label : undefined}
+                title={!showLabel ? item.label : undefined}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                {!sidebarCollapsed && <span>{item.label}</span>}
+                {showLabel && <span>{item.label}</span>}
               </NavLink>
             );
           })}
@@ -106,7 +151,7 @@ export function AppLayout() {
                 to="/admin"
                 className={({ isActive }) =>
                   clsx(
-                    "flex items-center gap-3 px-4 py-2 text-sm transition",
+                    "flex items-center gap-3 px-4 py-2.5 md:py-2 text-sm transition",
                     isActive
                       ? "bg-blue-50 text-info border-r-2 border-info font-medium"
                       : "text-gray-700 hover:bg-gray-50"
@@ -114,13 +159,13 @@ export function AppLayout() {
                 }
               >
                 <Settings className="h-5 w-5 flex-shrink-0" />
-                {!sidebarCollapsed && <span>Admin</span>}
+                {(!sidebarCollapsed || mobileMenuOpen) && <span>Admin</span>}
               </NavLink>
             </>
           )}
         </nav>
 
-        <div className="border-t border-gray-200 p-2">
+        <div className="border-t border-gray-200 p-2 hidden md:block">
           <button
             onClick={toggleSidebar}
             className="w-full flex items-center justify-center gap-2 py-2 text-gray-500 hover:bg-gray-50 rounded text-xs"
@@ -129,41 +174,73 @@ export function AppLayout() {
             {!sidebarCollapsed && <span>Recolher</span>}
           </button>
         </div>
+
+        {/* Footer mobile: signout + user */}
+        <div className="border-t border-gray-200 p-3 md:hidden">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-full bg-info text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
+              {user?.nome_exibicao?.[0] || user?.nome_completo?.[0] || "U"}
+            </div>
+            <div className="text-sm flex-1 min-w-0">
+              <div className="font-medium text-gray-900 leading-tight truncate">
+                {user?.nome_exibicao || user?.nome_completo}
+              </div>
+              <div className="text-xs text-gray-500 leading-tight">{user?.papel}</div>
+            </div>
+            <button
+              onClick={signOut}
+              className="p-2 text-gray-400 hover:text-alerta hover:bg-gray-50 rounded"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-          <div className="text-sm text-gray-600">
-            <span className="font-mono text-xs text-gray-400">{location.pathname}</span>
+      <div className="flex-1 flex flex-col min-w-0 w-full">
+        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-3 md:px-6 gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded"
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <span className="md:hidden font-display font-semibold text-sm text-gray-900 truncate">
+              Bússola Eleitoral
+            </span>
+            <span className="hidden md:inline font-mono text-xs text-gray-400 truncate">
+              {location.pathname}
+            </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
             <button
               onClick={() => useUI.getState().toggleDarkMode()}
               className="p-2 hover:bg-gray-100 rounded-md text-gray-600"
               title="Alternar tema (claro/escuro)"
             >
-              {useUI((s) => s.darkMode) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             <button
               onClick={() => {
                 const e = new KeyboardEvent("keydown", { key: "?", shiftKey: true });
                 window.dispatchEvent(e);
               }}
-              className="p-2 hover:bg-gray-100 rounded-md text-gray-600"
+              className="hidden md:block p-2 hover:bg-gray-100 rounded-md text-gray-600"
               title="Atalhos de teclado (?)"
             >
               <Keyboard className="h-4 w-4" />
             </button>
             <SinoNotificacoes />
-            <span className="text-xs text-gray-500">
-              v0.3.0 · localhost
-            </span>
-            <div className="flex items-center gap-2">
+            <span className="hidden lg:inline text-xs text-gray-500">v0.3.0</span>
+            <div className="hidden md:flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-info text-white flex items-center justify-center text-xs font-semibold">
                 {user?.nome_exibicao?.[0] || user?.nome_completo?.[0] || "U"}
               </div>
-              <div className="text-sm">
+              <div className="text-sm hidden lg:block">
                 <div className="font-medium text-gray-900 leading-tight">
                   {user?.nome_exibicao || user?.nome_completo}
                 </div>
@@ -171,7 +248,7 @@ export function AppLayout() {
               </div>
               <button
                 onClick={signOut}
-                className="ml-2 p-2 text-gray-400 hover:text-alerta hover:bg-gray-50 rounded"
+                className="ml-1 p-2 text-gray-400 hover:text-alerta hover:bg-gray-50 rounded"
                 title="Sair"
               >
                 <LogOut className="h-4 w-4" />

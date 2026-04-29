@@ -73,9 +73,21 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
   const ultimaPesquisa = pesquisas[0];
 
   return (
-    <aside className="w-full lg:w-[480px] bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
+    <>
+      {/* Overlay mobile (fecha drawer ao clicar fora) */}
+      <div
+        className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      <aside
+        className="fixed lg:static inset-0 lg:inset-auto z-50 lg:z-auto w-full lg:w-[480px] bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+      >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between flex-shrink-0">
+      <div className="px-4 md:px-5 py-3 md:py-4 border-b border-gray-200 flex items-start justify-between flex-shrink-0">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">
@@ -100,7 +112,7 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
       </div>
 
       {/* Conteúdo */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 md:px-5 py-4 space-y-6">
         {/* Resumo estratégico */}
         <section>
           <h3 className="text-sm font-semibold text-gray-900 mb-2 uppercase tracking-wide">
@@ -283,7 +295,7 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center gap-2 flex-shrink-0">
+      <div className="px-4 md:px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center gap-2 flex-shrink-0">
         <Link
           to={`/estados/${estado.sigla}`}
           className="btn-primary flex-1 text-center text-sm"
@@ -292,6 +304,7 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
         </Link>
       </div>
     </aside>
+    </>
   );
 }
 

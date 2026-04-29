@@ -3,6 +3,8 @@ import { create } from "zustand";
 interface UIState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
   selectedEstadoSigla: string | null;
   selectEstado: (sigla: string | null) => void;
   mapLayer: "status" | "governador" | "senado";
@@ -19,6 +21,8 @@ if (typeof window !== "undefined" && darkModeInicial) {
 export const useUI = create<UIState>((set) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  mobileMenuOpen: false,
+  setMobileMenuOpen: (open) => set({ mobileMenuOpen: open }),
   selectedEstadoSigla: null,
   selectEstado: (sigla) => set({ selectedEstadoSigla: sigla }),
   mapLayer: "status",

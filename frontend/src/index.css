@@ -5,9 +5,19 @@
 @layer base {
   body {
     @apply text-gray-900 bg-gray-50;
+    /* Evita ajuste automático de fonte no iOS quando rotaciona */
+    -webkit-text-size-adjust: 100%;
   }
   h1, h2, h3, h4 {
     @apply font-display;
+  }
+  /* Inputs >=16px no mobile para evitar auto-zoom do iOS Safari */
+  @media (max-width: 768px) {
+    input[type="text"], input[type="email"], input[type="password"],
+    input[type="search"], input[type="number"], input[type="tel"],
+    input[type="url"], input[type="date"], textarea, select {
+      font-size: 16px;
+    }
   }
 }
 

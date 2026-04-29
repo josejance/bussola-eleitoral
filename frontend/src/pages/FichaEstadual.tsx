@@ -59,22 +59,25 @@ export function FichaEstadual() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 pt-4">
-        <div className="flex items-start justify-between mb-3">
-          <div>
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 pt-3 md:pt-4">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="min-w-0 flex-1">
             <Link to="/estados" className="text-xs text-gray-500 hover:text-info inline-flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" /> Estados
             </Link>
-            <div className="flex items-baseline gap-3 mt-1">
-              <h1 className="text-3xl font-display font-bold text-gray-900">{estado.nome}</h1>
-              <span className="font-mono text-2xl text-gray-400">{estado.sigla}</span>
+            <div className="flex items-baseline gap-2 md:gap-3 mt-1 flex-wrap">
+              <h1 className="text-xl md:text-3xl font-display font-bold text-gray-900">{estado.nome}</h1>
+              <span className="font-mono text-lg md:text-2xl text-gray-400">{estado.sigla}</span>
             </div>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="text-xs md:text-sm text-gray-500 mt-1">
               <span className="capitalize">{estado.regiao.replace("_", " ")}</span> ·{" "}
-              {estado.eleitorado_atual?.toLocaleString("pt-BR")} eleitores · capital {estado.capital}
+              <span className="hidden sm:inline">
+                {estado.eleitorado_atual?.toLocaleString("pt-BR")} eleitores · capital {estado.capital}
+              </span>
+              <span className="sm:hidden">{estado.capital}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             {prevEstado && (
               <Link
                 to={`/estados/${prevEstado.sigla}`}
@@ -93,7 +96,7 @@ export function FichaEstadual() {
                 <ChevronRight className="h-4 w-4" />
               </Link>
             )}
-            <button className="btn-secondary text-sm">
+            <button className="btn-secondary text-sm hidden md:inline-flex">
               <FileDown className="h-4 w-4" /> Exportar PDF
             </button>
           </div>
@@ -121,7 +124,7 @@ export function FichaEstadual() {
       </div>
 
       {/* Conteúdo */}
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6 bg-gray-50">
         {aba === "visao-geral" && <AbaVisaoGeral estado={estado} status={status} />}
         {aba === "candidaturas" && <AbaCandidaturas estado={estado} />}
         {aba === "pesquisas" && <AbaPesquisas estado={estado} />}
@@ -170,7 +173,7 @@ function AbaVisaoGeral({ estado, status }: { estado: Estado; status?: StatusEsta
     return (
       <div className="card max-w-3xl">
         <h2 className="text-lg font-display font-semibold mb-4">Editar status estratégico</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Cenário Governador</label>
             <select
