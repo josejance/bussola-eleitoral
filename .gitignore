@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Dados brutos (JSONs de pesquisas, dumps locais)
+data/
+backend/data/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Build / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Deploy / cloud
+.vercel/
+.fly/
+
+# Backups acidentais
+*.bak
+*~

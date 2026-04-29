@@ -1,0 +1,13 @@
+from app.models.base import *  # noqa
+from app.models.geo import *  # noqa
+from app.models.party import *  # noqa
+from app.models.person import *  # noqa
+from app.models.election import *  # noqa
+from app.models.poll import *  # noqa
+from app.models.congress import *  # noqa
+from app.models.editorial import *  # noqa
+from app.models.timeline import *  # noqa
+from app.models.media import *  # noqa
+from app.models.user import *  # noqa
+from app.models.alert import *  # noqa
+from app.models.opiniao import *  # noqa
