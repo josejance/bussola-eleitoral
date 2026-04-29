@@ -1,0 +1,93 @@
+{
+  "pesquisa": {
+    "identificacao": {
+      "titulo": "Pesquisa Eleitoral para Presidente",
+      "subtitulo": "Pesquisa Quantitativa",
+      "local": "Brasil",
+      "rodada": "24ª Rodada",
+      "periodo": {
+        "data_coleta_inicio": "2026-04-09",
+        "data_coleta_fim": "2026-04-13",
+        "mes_ano": "Abril de 2026"
+      },
+      "instituicoes": {
+        "contratante": "Genial Investimentos",
+        "executora": "Quaest"
+      },
+      "registro_eleitoral": {
+        "numero": "BR-09285/2026",
+        "orgao": "Justiça Eleitoral"
+      }
+    },
+    "especificacoes_tecnicas": {
+      "amostra": {
+        "total_entrevistas": 2004,
+        "margem_erro": 2,
+        "nivel_confianca": 95
+      }
+    },
+    "_serie_historica_aprovacao_lula": [
+      {"periodo": "Março/2025", "aprova": 41, "desaprova": 56, "ns_nr": 3},
+      {"periodo": "Maio/2025", "aprova": 40, "desaprova": 57, "ns_nr": 3},
+      {"periodo": "Julho/2025", "aprova": 43, "desaprova": 53, "ns_nr": 4},
+      {"periodo": "Agosto/2025", "aprova": 46, "desaprova": 51, "ns_nr": 3},
+      {"periodo": "Setembro/2025", "aprova": 46, "desaprova": 51, "ns_nr": 3},
+      {"periodo": "Outubro/2025", "aprova": 48, "desaprova": 49, "ns_nr": 3},
+      {"periodo": "Novembro/2025", "aprova": 47, "desaprova": 50, "ns_nr": 3},
+      {"periodo": "Dezembro/2025", "aprova": 48, "desaprova": 49, "ns_nr": 3},
+      {"periodo": "Janeiro/2026", "aprova": 47, "desaprova": 49, "ns_nr": 4},
+      {"periodo": "Fevereiro/2026", "aprova": 45, "desaprova": 51, "ns_nr": 5},
+      {"periodo": "Março/2026", "aprova": 44, "desaprova": 52, "ns_nr": 5},
+      {"periodo": "Abril/2026", "aprova": 43, "desaprova": 52, "ns_nr": 5}
+    ],
+    "secoes_pesquisa": {
+      "secao_1_aprovacao_governo": {
+        "titulo": "Aprovação do Governo Lula",
+        "questao": "Você aprova ou desaprova o trabalho que o presidente Lula está fazendo?",
+        "dados_gerais": {"aprova": 43, "desaprova": 52, "ns_nr": 5}
+      },
+      "secao_2_avaliacao_governo": {
+        "titulo": "Avaliação do Governo Lula",
+        "questao": "Como você avalia o trabalho que o presidente Lula está fazendo?",
+        "dados_gerais": {"muito_bom": 18, "bom": 27, "regular": 31, "ruim": 19, "muito_ruim": 3, "ns_nr": 2}
+      },
+      "secao_3_intencao_voto_espontanea": {
+        "titulo": "Intenção de Voto para Presidente (Espontânea)",
+        "dados_gerais": {
+          "lula_pt": 28,
+          "flavio_bolsonaro_pl": 24,
+          "ronaldo_caiado_psd": 4,
+          "outros": 2,
+          "nao_escolheu": 37,
+          "branco_nulo_nao_vai_votar": 5
+        }
+      },
+      "secao_4_intencao_voto_1turno_cenario_1": {
+        "titulo": "Intenção de Voto para Presidente - 1º Turno - Cenário I",
+        "dados_gerais": {
+          "lula_pt": 35,
+          "flavio_bolsonaro_pl": 32,
+          "ronaldo_caiado_psd": 9,
+          "romeu_zema_novo": 3,
+          "augusto_cury_avante": 1,
+          "renan_santos_missao": 1,
+          "cabo_daciolo_mobiliza": 0,
+          "samara_martins_up": 1,
+          "aldo_rebelo_dc": 0,
+          "indecisos": 5,
+          "branco_nulo_nao_vai_votar": 11
+        }
+      },
+      "secao_6_intencao_voto_2turno": {
+        "titulo": "Intenção de Voto para Presidente - 2º Turno",
+        "cenarios": {
+          "cenario_1_lula_vs_flavio": {"dados_gerais": {"lula_pt": 46, "flavio_bolsonaro_pl": 40, "branco_nulo_nao_vai_votar": 14}},
+          "cenario_2_lula_vs_caiado": {"dados_gerais": {"lula_pt": 50, "ronaldo_caiado_psd": 28, "branco_nulo_nao_vai_votar": 22}},
+          "cenario_3_lula_vs_zema": {"dados_gerais": {"lula_pt": 52, "romeu_zema_novo": 19, "branco_nulo_nao_vai_votar": 29}},
+          "cenario_4_flavio_vs_caiado": {"dados_gerais": {"flavio_bolsonaro_pl": 48, "ronaldo_caiado_psd": 25, "branco_nulo_nao_vai_votar": 27}},
+          "cenario_5_flavio_vs_zema": {"dados_gerais": {"flavio_bolsonaro_pl": 50, "romeu_zema_novo": 18, "branco_nulo_nao_vai_votar": 32}}
+        }
+      }
+    }
+  }
+}

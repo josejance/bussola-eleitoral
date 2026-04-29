@@ -249,6 +249,39 @@ def processar_questao_avaliacao(
                     **aval_data,
                 ))
                 estatisticas["avaliacoes"] += 1
+        return
+
+    # Caso 3: dict simples {aprova: 43, desaprova: 52, ns_nr: 5}
+    # ou {muito_bom: 18, bom: 27, regular: 31, ruim: 19, muito_ruim: 3}
+    if isinstance(dados_gerais, dict) and dados_gerais:
+        out = {"aprova": None, "desaprova": None, "otimo_bom": None, "regular": None,
+               "ruim_pessimo": None, "nao_sabe": None}
+        # Mapeamento direto
+        out["aprova"] = _f(dados_gerais.get("aprova"))
+        out["desaprova"] = _f(dados_gerais.get("desaprova"))
+        out["regular"] = _f(dados_gerais.get("regular"))
+        out["nao_sabe"] = _f(dados_gerais.get("ns_nr") or dados_gerais.get("nao_sabe"))
+        # Escala otimo/bom/regular/ruim/pessimo: agrega
+        mb = _f(dados_gerais.get("muito_bom"))
+        bom = _f(dados_gerais.get("bom"))
+        if mb is not None or bom is not None:
+            out["otimo_bom"] = (mb or 0) + (bom or 0)
+        ruim = _f(dados_gerais.get("ruim"))
+        mr = _f(dados_gerais.get("muito_ruim"))
+        if ruim is not None or mr is not None:
+            out["ruim_pessimo"] = (ruim or 0) + (mr or 0)
+
+        # Só salva se tem pelo menos algum valor útil
+        if any(v is not None for v in out.values()):
+            db.add(AvaliacaoGoverno(
+                pesquisa_id=pesquisa.id,
+                nivel=nivel,
+                pessoa_avaliada_id=pessoa_avaliada.id if pessoa_avaliada else None,
+                cargo_avaliado=cargo_norm,
+                periodo_referencia=pesquisa.data_fim_campo,
+                **out,
+            ))
+            estatisticas["avaliacoes"] += 1
 
 
 def processar_questao_intencao(
@@ -273,17 +306,24 @@ def processar_questao_intencao(
             if nome and pct is not None:
                 candidatos.append((nome, pct))
     elif isinstance(dados_gerais, dict):
-        # Pode ser dict {Cenario1: [...], Cenario2: [...]}
-        for sub_cenario, lista in dados_gerais.items():
-            if not isinstance(lista, list):
-                continue
-            for item in lista:
-                if not isinstance(item, dict):
+        # Caso A: dict {candidato_chave: percentual_int} — formato Quaest novo
+        # Ex: {"lula_pt": 35, "flavio_bolsonaro_pl": 32, "indecisos": 5}
+        if all(isinstance(v, (int, float)) for v in dados_gerais.values()):
+            for chave, pct in dados_gerais.items():
+                nome = _humanizar_candidato(chave)
+                candidatos.append((nome, _f(pct) or 0))
+        else:
+            # Caso B: dict aninhado {Cenario1: [...], Cenario2: [...]}
+            for sub_cenario, lista in dados_gerais.items():
+                if not isinstance(lista, list):
                     continue
-                nome = item.get("opcao") or item.get("nome") or item.get("candidato")
-                pct = _f(item.get("percentual") or item.get("pct"))
-                if nome and pct is not None:
-                    candidatos.append((f"{nome}", pct))
+                for item in lista:
+                    if not isinstance(item, dict):
+                        continue
+                    nome = item.get("opcao") or item.get("nome") or item.get("candidato")
+                    pct = _f(item.get("percentual") or item.get("pct"))
+                    if nome and pct is not None:
+                        candidatos.append((f"{nome}", pct))
 
     for posicao, (nome, pct) in enumerate(candidatos, start=1):
         pessoa = None
@@ -346,8 +386,10 @@ def reextrair_pesquisa(db: Session, pesquisa_id: str) -> dict:
     data = json.loads(bruto.dados_json)
     root = data.get("pesquisa", data)
     resultados = root.get("resultados", {})
-    if not isinstance(resultados, dict):
-        return {"status": "skip", "motivo": "Resultados não é dict"}
+    secoes = root.get("secoes_pesquisa", {})
+    serie_historica = root.get("_serie_historica_aprovacao_lula")
+    if not isinstance(resultados, dict) and not isinstance(secoes, dict):
+        return {"status": "skip", "motivo": "Sem 'resultados' nem 'secoes_pesquisa'"}
 
     # Apaga existentes
     db.query(IntencaoVoto).filter(IntencaoVoto.pesquisa_id == pesquisa_id).delete()
@@ -357,27 +399,69 @@ def reextrair_pesquisa(db: Session, pesquisa_id: str) -> dict:
     abrangencia = pesquisa.abrangencia or "nacional"
     estatisticas = {"avaliacoes": 0, "intencoes": 0, "questoes_processadas": 0}
 
-    for k, q in resultados.items():
+    # ---------- 1) Série histórica explícita (formato Quaest novo) ----------
+    if isinstance(serie_historica, list) and serie_historica:
+        pseudo_q = {
+            "titulo": "Aprovação do Governo Lula — série histórica",
+            "dados_gerais": serie_historica,
+        }
+        processar_questao_avaliacao(
+            db, pesquisa, pseudo_q,
+            "Aprovação do Governo Lula — série histórica",
+            estatisticas, abrangencia,
+        )
+        estatisticas["questoes_processadas"] += 1
+
+    # ---------- 2) Itera secoes_pesquisa (formato novo Quaest) ----------
+    for k, secao in (secoes if isinstance(secoes, dict) else {}).items():
+        if not isinstance(secao, dict):
+            continue
+        titulo = secao.get("titulo") or k
+        texto_busca = f"{titulo} {k}".lower().replace("_", " ")
+
+        eh_aprovacao = "aprovacao" in texto_busca or "aprovação" in texto_busca or "aprova" in texto_busca
+        eh_avaliacao = "avaliacao" in texto_busca or "avaliação" in texto_busca
+        eh_intencao_1t = ("1 turno" in texto_busca or "1turno" in texto_busca or "1º turno" in texto_busca
+                          or ("intencao voto" in texto_busca and "2" not in texto_busca and "espont" not in texto_busca))
+        eh_intencao_2t = "2 turno" in texto_busca or "2turno" in texto_busca or "2º turno" in texto_busca
+        eh_espontanea = "espontanea" in texto_busca or "espontânea" in texto_busca
+
+        if eh_aprovacao or eh_avaliacao:
+            processar_questao_avaliacao(db, pesquisa, secao, titulo, estatisticas, abrangencia)
+            estatisticas["questoes_processadas"] += 1
+        elif eh_intencao_2t:
+            _processar_cenarios_2t(db, pesquisa, secao, estatisticas)
+            estatisticas["questoes_processadas"] += 1
+        elif eh_espontanea:
+            processar_questao_intencao(db, pesquisa, secao, titulo, "Espontânea", estatisticas)
+            estatisticas["questoes_processadas"] += 1
+        elif eh_intencao_1t:
+            # Detecta "Cenário I", "Cenário 1", etc.
+            m = re.search(r"cen[áa]rio[s]?[\s_]*([IVX]+|\d+)", titulo, re.IGNORECASE)
+            label = m.group(0) if m else "Cenário I"
+            cenario_label = f"1T - {label}"
+            processar_questao_intencao(db, pesquisa, secao, titulo, cenario_label, estatisticas)
+            estatisticas["questoes_processadas"] += 1
+
+    # ---------- 3) Itera 'resultados' (formato antigo) ----------
+    for k, q in (resultados if isinstance(resultados, dict) else {}).items():
         if not isinstance(q, dict):
             continue
         titulo = q.get("titulo") or q.get("enunciado") or k
         # Combina título + chave para detecção (chaves snake_case têm "aprovacao_governo_X")
         texto_busca = f"{titulo} {k}".lower().replace("_", " ")
 
-        # Identifica tipo: aprovação
         eh_aprovacao = any(
             kw in texto_busca
             for kw in ["aprovação do governo", "aprovacao do governo", "aprova ou desaprova",
                        "aprovacao governo", "aprova governo"]
         )
-        # Avaliação ótimo/bom/regular
         eh_avaliacao = (
             "avaliação do governo" in texto_busca
             or "avaliacao do governo" in texto_busca
             or "avaliacao governo" in texto_busca
             or ("avalia" in texto_busca and any(x in texto_busca for x in ["ótimo", "otimo", "regular", "bom"]))
         )
-        # Intenção de voto
         eh_intencao = (
             "intenção" in texto_busca
             or "intencao" in texto_busca
@@ -387,7 +471,6 @@ def reextrair_pesquisa(db: Session, pesquisa_id: str) -> dict:
         )
 
         if eh_aprovacao or eh_avaliacao:
-            # Para chaves snake_case (BA), usa o título da pergunta interna como nome
             titulo_real = q.get("titulo") or q.get("enunciado") or _humanizar_chave(k)
             processar_questao_avaliacao(db, pesquisa, q, titulo_real, estatisticas, abrangencia)
             estatisticas["questoes_processadas"] += 1
@@ -411,6 +494,81 @@ def reextrair_pesquisa(db: Session, pesquisa_id: str) -> dict:
 def _humanizar_chave(k: str) -> str:
     """aprovacao_governo_jeronimo_rodrigues → Aprovacao Governo Jeronimo Rodrigues"""
     return " ".join(w.capitalize() for w in k.replace("_", " ").split())
+
+
+# Mapa de chaves snake_case → nome canônico de candidato (formato Quaest novo)
+CANDIDATOS_SNAKE = {
+    "lula_pt": "Lula (PT)",
+    "flavio_bolsonaro_pl": "Flávio Bolsonaro (PL)",
+    "jair_bolsonaro_pl": "Jair Bolsonaro (PL)",
+    "ronaldo_caiado_psd": "Ronaldo Caiado (PSD)",
+    "romeu_zema_novo": "Romeu Zema (Novo)",
+    "eduardo_leite_psd": "Eduardo Leite (PSD)",
+    "ratinho_junior_psd": "Ratinho Júnior (PSD)",
+    "tarcisio_de_freitas_pl": "Tarcísio de Freitas (PL)",
+    "augusto_cury_avante": "Augusto Cury (Avante)",
+    "renan_santos_missao": "Renan Santos (Missão)",
+    "cabo_daciolo_mobiliza": "Cabo Daciolo (Mobiliza)",
+    "samara_martins_up": "Samara Martins (UP)",
+    "aldo_rebelo_dc": "Aldo Rebelo (DC)",
+    "indecisos": "Indecisos",
+    "branco_nulo_nao_vai_votar": "Branco/Nulo/Não vai votar",
+    "branco_nulo": "Branco/Nulo",
+    "nao_escolheu": "Não escolheu",
+    "outros": "Outros",
+    "nenhum": "Nenhum",
+}
+
+
+def _humanizar_candidato(chave: str) -> str:
+    """Converte chave snake_case Quaest em nome legível.
+    Ex: 'lula_pt' → 'Lula (PT)', 'flavio_bolsonaro_pl' → 'Flávio Bolsonaro (PL)'
+    """
+    if chave in CANDIDATOS_SNAKE:
+        return CANDIDATOS_SNAKE[chave]
+    # Heurística: separa em palavras e detecta partido no fim (2-4 letras)
+    partes = chave.split("_")
+    if len(partes) >= 2 and len(partes[-1]) <= 4:
+        partido = partes[-1].upper()
+        nome = " ".join(p.capitalize() for p in partes[:-1])
+        return f"{nome} ({partido})"
+    return _humanizar_chave(chave)
+
+
+def _processar_cenarios_2t(
+    db: Session,
+    pesquisa: Pesquisa,
+    secao: dict,
+    estatisticas: dict,
+):
+    """Processa 'secao_intencao_voto_2turno' que tem chave 'cenarios' com sub-cenários."""
+    cenarios = secao.get("cenarios")
+    if not isinstance(cenarios, dict):
+        return
+    for cenario_key, cenario_data in cenarios.items():
+        if not isinstance(cenario_data, dict):
+            continue
+        dados = cenario_data.get("dados_gerais")
+        if not isinstance(dados, dict):
+            continue
+        # Label legível: cenario_1_lula_vs_flavio → "2T - Lula vs Flávio"
+        label_humano = cenario_key.replace("cenario_", "")
+        m = re.match(r"^(\d+)_(.*)$", label_humano)
+        if m:
+            num, resto = m.groups()
+            label_humano = f"{num} ({resto.replace('_vs_', ' vs ').replace('_', ' ').title()})"
+        cenario_label = f"2T - Cenário {label_humano}"
+
+        candidatos = []
+        for chave, pct in dados.items():
+            if not isinstance(pct, (int, float)):
+                continue
+            candidatos.append((_humanizar_candidato(chave), float(pct)))
+
+        # Reusa o mesmo loop de criação do processar_questao_intencao
+        # criando um pseudo-questao
+        pseudo_q = {"dados_gerais": [{"opcao": n, "percentual": p} for n, p in candidatos]}
+        processar_questao_intencao(db, pesquisa, pseudo_q, cenario_label, cenario_label, estatisticas)
 
 
 def reextrair_todas(db: Session) -> dict:
