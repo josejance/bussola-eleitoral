@@ -401,6 +401,7 @@ function AbaCandidaturas({ estado }: { estado: Estado }) {
 
 function CardCandidato({ c }: { c: Candidatura }) {
   const partidoColor = c.partido?.cor_hex || "#9CA3AF";
+  const nome = c.pessoa?.nome_urna || c.pessoa?.nome_completo || "—";
   return (
     <div className="card hover:shadow-md transition !p-3">
       <div className="flex items-start gap-3">
@@ -409,9 +410,19 @@ function CardCandidato({ c }: { c: Candidatura }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <div className="font-display font-semibold text-gray-900 leading-tight truncate">
-              {c.pessoa?.nome_urna || c.pessoa?.nome_completo || "—"}
-            </div>
+            {c.pessoa?.id ? (
+              <Link
+                to={`/midia?pessoa_id=${c.pessoa.id}&pessoa_nome=${encodeURIComponent(nome)}`}
+                className="font-display font-semibold text-gray-900 leading-tight truncate hover:text-info hover:underline"
+                title={`Ver menções de ${nome} na mídia`}
+              >
+                {nome}
+              </Link>
+            ) : (
+              <div className="font-display font-semibold text-gray-900 leading-tight truncate">
+                {nome}
+              </div>
+            )}
             {!c.eh_titular && (
               <span className="badge bg-gray-100 text-gray-600 text-xs">vice</span>
             )}
@@ -917,7 +928,17 @@ function CardCandidatosResumo({ estadoId }: { estadoId: string }) {
                   className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: c.partido?.cor_hex || "#9CA3AF" }}
                 />
-                <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                {c.pessoa?.id ? (
+                  <Link
+                    to={`/midia?pessoa_id=${c.pessoa.id}&pessoa_nome=${encodeURIComponent(c.pessoa?.nome_urna || "")}`}
+                    className="font-medium hover:text-info hover:underline"
+                    title={`Ver menções de ${c.pessoa?.nome_urna} na mídia`}
+                  >
+                    {c.pessoa?.nome_urna}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                )}
                 <span className="text-gray-500 text-xs font-mono">({c.partido?.sigla})</span>
               </div>
             ))}
@@ -936,7 +957,17 @@ function CardCandidatosResumo({ estadoId }: { estadoId: string }) {
                   className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: c.partido?.cor_hex || "#9CA3AF" }}
                 />
-                <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                {c.pessoa?.id ? (
+                  <Link
+                    to={`/midia?pessoa_id=${c.pessoa.id}&pessoa_nome=${encodeURIComponent(c.pessoa?.nome_urna || "")}`}
+                    className="font-medium hover:text-info hover:underline"
+                    title={`Ver menções de ${c.pessoa?.nome_urna} na mídia`}
+                  >
+                    {c.pessoa?.nome_urna}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                )}
                 <span className="text-gray-500 text-xs font-mono">({c.partido?.sigla})</span>
               </div>
             ))}

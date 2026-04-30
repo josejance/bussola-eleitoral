@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Newspaper, RefreshCw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ExternalLink, Newspaper, RefreshCw, X } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { api } from "../lib/api";
 import { formatLocalDateTime, formatRelativeUtc } from "../lib/datetime";
-import { Estado, Materia } from "../lib/types";
+import { Estado, Materia, MateriaStats, PessoaResumo } from "../lib/types";
 import { useAuth } from "../store/auth";
 
 interface FonteRSS {
@@ -38,11 +38,22 @@ export function MidiaPage() {
   const user = useAuth((s) => s.user);
   const podeVerStatus = user && ["admin", "editor_nacional"].includes(user.papel);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pessoaId = searchParams.get("pessoa_id") || "";
+  const pessoaNomeQuery = searchParams.get("pessoa_nome") || "";
+
   const [estadoFilter, setEstadoFilter] = useState<string>("");
   const [fonteFilter, setFonteFilter] = useState<string>("");
 
+  const limparFiltroPessoa = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("pessoa_id");
+    next.delete("pessoa_nome");
+    setSearchParams(next);
+  };
+
   const { data: materias = [], isFetching, refetch } = useQuery({
-    queryKey: ["materias", "feed", estadoFilter, fonteFilter],
+    queryKey: ["materias", "feed", estadoFilter, fonteFilter, pessoaId],
     queryFn: async () =>
       (
         await api.get<Materia[]>("/midia/materias", {
@@ -50,10 +61,28 @@ export function MidiaPage() {
             limit: 50,
             estado_id: estadoFilter || undefined,
             fonte_id: fonteFilter || undefined,
+            pessoa_id: pessoaId || undefined,
           },
         })
       ).data,
     refetchInterval: 30_000,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["materias", "stats", pessoaId],
+    queryFn: async () =>
+      (
+        await api.get<MateriaStats>("/midia/materias/stats", {
+          params: { pessoa_id: pessoaId },
+        })
+      ).data,
+    enabled: !!pessoaId,
+  });
+
+  const { data: pessoa } = useQuery({
+    queryKey: ["pessoa", "resumo", pessoaId],
+    queryFn: async () => (await api.get<PessoaResumo>(`/pessoas/${pessoaId}`)).data,
+    enabled: !!pessoaId,
   });
 
   const { data: fontes = [] } = useQuery({
@@ -103,6 +132,67 @@ export function MidiaPage() {
           Último polling: {formatRelativeUtc(status.ultimo_polling)}
           {" "}· Scheduler: a cada 15 min
         </div>
+      )}
+
+      {pessoaId && (
+        <section className="card mb-4 bg-gradient-to-r from-blue-50 to-white border border-blue-100 !p-4">
+          <div className="flex items-start gap-4">
+            {pessoa?.foto_url ? (
+              <img
+                src={pessoa.foto_url}
+                alt=""
+                className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-white border border-blue-200 flex items-center justify-center text-2xl font-display font-bold text-blue-700 flex-shrink-0">
+                {(pessoa?.nome_urna || pessoa?.nome_completo || pessoaNomeQuery || "?")[0]}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-xs uppercase tracking-wide text-blue-700 font-semibold">
+                Menções na mídia
+              </div>
+              <h2 className="text-xl font-display font-bold text-gray-900 truncate">
+                {pessoa?.nome_urna || pessoa?.nome_completo || pessoaNomeQuery || "Candidato"}
+              </h2>
+              <Link
+                to={`/pessoas/${pessoaId}`}
+                className="text-xs text-info hover:underline inline-flex items-center gap-1"
+              >
+                Ver perfil completo →
+              </Link>
+            </div>
+            <button
+              onClick={limparFiltroPessoa}
+              className="btn-secondary text-xs flex-shrink-0 inline-flex items-center gap-1"
+              title="Remover filtro de candidato"
+            >
+              <X className="h-3 w-3" />
+              Limpar filtro
+            </button>
+          </div>
+
+          {stats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              <div className="bg-white rounded border border-gray-100 p-3">
+                <div className="text-xs text-gray-500">Total de menções</div>
+                <div className="text-2xl font-display font-bold text-gray-900">{stats.total}</div>
+              </div>
+              <div className="bg-white rounded border border-gray-100 p-3">
+                <div className="text-xs text-gray-500">Últimos 7 dias</div>
+                <div className="text-2xl font-display font-bold text-gray-900">{stats.ultimos_7d}</div>
+              </div>
+              <div className="bg-white rounded border border-gray-100 p-3">
+                <div className="text-xs text-gray-500">Fontes distintas</div>
+                <div className="text-2xl font-display font-bold text-gray-900">{stats.fontes_distintas}</div>
+              </div>
+              <div className="bg-white rounded border border-gray-100 p-3">
+                <div className="text-xs text-gray-500">Estados</div>
+                <div className="text-2xl font-display font-bold text-gray-900">{stats.estados_distintos}</div>
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

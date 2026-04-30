@@ -113,3 +113,18 @@ export interface Materia {
   url: string;
   imagem_url?: string | null;
 }
+
+export interface MateriaStats {
+  total: number;
+  ultimos_7d: number;
+  fontes_distintas: number;
+  estados_distintos: number;
+  timeline: { data: string; n: number }[];
+}
+
+export interface PessoaResumo {
+  id: string;
+  nome_completo: string;
+  nome_urna?: string | null;
+  foto_url?: string | null;
+}

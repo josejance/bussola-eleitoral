@@ -13,7 +13,7 @@ interface Candidatura {
   cargo: string;
   eh_titular: boolean;
   observacao: string | null;
-  pessoa: { nome_urna: string; nome_completo: string } | null;
+  pessoa: { id: string; nome_urna: string; nome_completo: string } | null;
   partido: { sigla: string; cor_hex: string | null } | null;
 }
 
@@ -165,7 +165,17 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
                               className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                               style={{ backgroundColor: c.partido?.cor_hex || "#9CA3AF" }}
                             />
-                            <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                            {c.pessoa?.id ? (
+                              <Link
+                                to={`/midia?pessoa_id=${c.pessoa.id}&pessoa_nome=${encodeURIComponent(c.pessoa.nome_urna || "")}`}
+                                className="font-medium hover:text-info hover:underline"
+                                title={`Ver menções de ${c.pessoa.nome_urna} na mídia`}
+                              >
+                                {c.pessoa.nome_urna}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                            )}
                             <span className="text-gray-500 text-xs font-mono">
                               ({c.partido?.sigla})
                             </span>
@@ -191,7 +201,17 @@ export function DrawerEstado({ estado, status, onClose }: Props) {
                               className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                               style={{ backgroundColor: c.partido?.cor_hex || "#9CA3AF" }}
                             />
-                            <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                            {c.pessoa?.id ? (
+                              <Link
+                                to={`/midia?pessoa_id=${c.pessoa.id}&pessoa_nome=${encodeURIComponent(c.pessoa.nome_urna || "")}`}
+                                className="font-medium hover:text-info hover:underline"
+                                title={`Ver menções de ${c.pessoa.nome_urna} na mídia`}
+                              >
+                                {c.pessoa.nome_urna}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">{c.pessoa?.nome_urna}</span>
+                            )}
                             <span className="text-gray-500 text-xs font-mono">
                               ({c.partido?.sigla})
                             </span>
