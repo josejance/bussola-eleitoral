@@ -49,6 +49,9 @@ desktop.ini
 .vercel/
 .fly/
 
+# Claude Code (local settings, plans, etc.)
+.claude/
+
 # Backups acidentais
 *.bak
 *~
